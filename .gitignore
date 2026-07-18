@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (in case of build tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+dist/
+build/
+.cache/
+
+# Jekyll (in case of GitHub Pages Jekyll build)
+_site/
+.jekyll-cache/
+.jekyll-metadata
+
+# Env
+.env
+.env.local
