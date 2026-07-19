@@ -4,40 +4,74 @@
    { fs: [folder, "id_userid"] } -> https://cdn.freesound.org/previews/folder/id_userid-lq.mp3
    { gen: "type" } -> generated locally with Web Audio
    null -> no source found yet
-   Credits (CC-BY unless noted CC0):
-     34065  "AMBIENT - Rain - Light" by Arctura
-     339324 "Stream, Water, C" by InspectorJ
-     365921 "Waterfall, Small, B" by InspectorJ
-     339326 "Bird Whistling, A" by InspectorJ
-     352514 "Ambience, Night Wildlife, A" by InspectorJ
-     405561 "Wind, Realistic, A" by InspectorJ
-     353194 "Wind Chimes, A" by InspectorJ
-     414767 "Crackling Fire" by samarobryn (CC0)
-     705049 "Small city ambience with traffic" by felix.blume (CC0)
-     341208 "train interior ambience 1a" by Yoyodaman234 (CC0)
+   Credits (license marked per entry):
+     34065  "AMBIENT - Rain - Light" by Arctura                       (CC-BY)
+     339324 "Stream, Water, C" by InspectorJ                          (CC-BY)
+     365921 "Waterfall, Small, B" by InspectorJ                       (CC-BY)
+     339326 "Bird Whistling, A" by InspectorJ                         (CC-BY)
+     352514 "Ambience, Night Wildlife, A" by InspectorJ               (CC-BY)
+     405561 "Wind, Realistic, A" by InspectorJ                        (CC-BY)
+     353194 "Wind Chimes, A" by InspectorJ                            (CC-BY)
+     414767 "Crackling Fire" by samarobryn                            (CC0)
+     705049 "Small city ambience with traffic" by felix.blume         (CC0)
+     341208 "train interior ambience 1a" by Yoyodaman234              (CC0)
+     251233 "In the Tent - Rain" by pulswelle                         (CC0)
+     177958 "Water Dripping in Cave" by Sclolex                       (CC0)
+     523389 "Forest, trees rustling in the wind" by arpeggio1980      (CC0)
+     278868 "Nature sounds frog 1" by Sandermotions                   (CC0)
+     151241 "OwlsForestApril82012" by kvgarlic                        (CC0)
+     417770 "Outdoor Ambience - Cicadas" by mixxythepixxy             (CC-BY)
+     158780 "wolves" by Paresh                                        (CC0)
+     505999 "Howling winter storm ambient sounds" by DBlover          (CC0)
+     568975 "Distant sirens, urban, night" by TRP                     (CC0)
+     543913 "bar chatter" by SoundsExciting                           (CC0)
+     561815 "General Harbour Ambience" by Kinoton                     (CC0)
+     178648 "ChurchBells" by Zabuhailo                                (CC0)
+     780515 "Kitchen room tone with fridge" by pryanic                (CC0)
+     496275 "6_Cat, purr" by 16GPanskaZlochova_Eliska                 (CC0)
+     151279 "Washing Machine Spin Cycle" by timgormly                 (CC0)
+     380135 "Computer Keyboard - typing sounds" by yottasounds        (CC0)
+     242008 "Clock Ticking" by photogtony                             (CC0)
 ================================================== */
 const FS = (folder, file) => "https://cdn.freesound.org/previews/" + folder + "/" + file + "-lq.mp3";
 
 const CATALOG = [
   { category: "Water", sounds: [
-    { name: "Rain",      variants: [ { label: "", src: { fs: FS(34,  "34065_28216") } } ] },
-    { name: "Stream",    variants: [ { label: "", src: { fs: FS(339, "339324_5121236") } } ] },
-    { name: "Waterfall", variants: [ { label: "", src: { fs: FS(365, "365921_5121236") } } ] }
+    { name: "Rain",         variants: [ { label: "", src: { fs: FS(34,  "34065_28216") } } ] },
+    { name: "Rain on tent", variants: [ { label: "", src: { fs: FS(251, "251233_2367966") } } ] },
+    { name: "Stream",       variants: [ { label: "", src: { fs: FS(339, "339324_5121236") } } ] },
+    { name: "Waterfall",    variants: [ { label: "", src: { fs: FS(365, "365921_5121236") } } ] },
+    { name: "Cave drips",   variants: [ { label: "", src: { fs: FS(177, "177958_985466") } } ] }
   ]},
   { category: "Nature", sounds: [
     { name: "Birds",    variants: [ { label: "", src: { fs: FS(339, "339326_5121236") } } ] },
+    { name: "Forest",   variants: [ { label: "", src: { fs: FS(523, "523389_2010973") } } ] },
     { name: "Crickets", variants: [ { label: "", src: { fs: FS(352, "352514_5121236") } } ] },
+    { name: "Cicadas",  variants: [ { label: "", src: { fs: FS(417, "417770_6271616") } } ] },
+    { name: "Frogs",    variants: [ { label: "", src: { fs: FS(278, "278868_1402315") } } ] },
+    { name: "Owls",     variants: [ { label: "", src: { fs: FS(151, "151241_1050391") } } ] },
+    { name: "Wolves",   variants: [ { label: "", src: { fs: FS(158, "158780_229952") } } ] },
     { name: "Wind",     variants: [ { label: "", src: { fs: FS(405, "405561_5121236") } } ] },
+    { name: "Blizzard", variants: [ { label: "", src: { fs: FS(505, "505999_7846219") } } ] },
     { name: "Campfire", variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] }
   ]},
   { category: "City", sounds: [
-    { name: "Traffic", variants: [ { label: "", src: { fs: FS(705, "705049_1661766") } } ] },
-    { name: "Train",   variants: [ { label: "", src: { fs: FS(341, "341208_2792951") } } ] }
+    { name: "Traffic",      variants: [ { label: "", src: { fs: FS(705, "705049_1661766") } } ] },
+    { name: "Sirens",       variants: [ { label: "", src: { fs: FS(568, "568975_97550") } } ] },
+    { name: "Crowd",        variants: [ { label: "", src: { fs: FS(543, "543913_3279490") } } ] },
+    { name: "Train",        variants: [ { label: "", src: { fs: FS(341, "341208_2792951") } } ] },
+    { name: "Harbour",      variants: [ { label: "", src: { fs: FS(561, "561815_2247456") } } ] },
+    { name: "Church bells", variants: [ { label: "", src: { fs: FS(178, "178648_2580450") } } ] }
   ]},
   { category: "Home", sounds: [
     { name: "Fan", variants: [ { label: "", src: { gen: "fan-desk" } } ] },
     { name: "Air conditioner", centered: true, variants: [ { label: "", src: { gen: "ac" } } ] },
-    { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] }
+    { name: "Refrigerator",    centered: true, variants: [ { label: "", src: { fs: FS(780, "780515_11318300") } } ] },
+    { name: "Washing machine", variants: [ { label: "", src: { fs: FS(151, "151279_2578041") } } ] },
+    { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] },
+    { name: "Purring cat",     variants: [ { label: "", src: { fs: FS(496, "496275_10774386") } } ] },
+    { name: "Keyboard",        variants: [ { label: "", src: { fs: FS(380, "380135_3249786") } } ] },
+    { name: "Clock",           variants: [ { label: "", src: { fs: FS(242, "242008_4363393") } } ] }
   ]},
   { category: "Noise & tones", sounds: [
     { name: "White noise", centered: true, variants: [ { label: "", src: { gen: "white" } } ] },
