@@ -6,8 +6,6 @@
    null -> no source found yet
    Credits (CC-BY unless noted CC0):
      34065  "AMBIENT - Rain - Light" by Arctura
-     238911 "Seamless Rain Loop" by Iwan 'qubodup' Gabovitch
-     346642 "Rain on Windows, Interior, A" by InspectorJ (jshaw.co.uk)
      339324 "Stream, Water, C" by InspectorJ
      365921 "Waterfall, Small, B" by InspectorJ
      339326 "Bird Whistling, A" by InspectorJ
@@ -22,38 +20,22 @@ const FS = (folder, file) => "https://cdn.freesound.org/previews/" + folder + "/
 
 const CATALOG = [
   { category: "Water", sounds: [
-    { name: "Rain", variants: [
-      { label: "Light",     src: { fs: FS(34,  "34065_28216") } },
-      { label: "On roof",   src: { fs: FS(346, "346642_5121236") } },
-      { label: "Courtyard", src: { fs: FS(238, "238911_71257") } }
-    ]},
+    { name: "Rain",      variants: [ { label: "", src: { fs: FS(34,  "34065_28216") } } ] },
     { name: "Stream",    variants: [ { label: "", src: { fs: FS(339, "339324_5121236") } } ] },
     { name: "Waterfall", variants: [ { label: "", src: { fs: FS(365, "365921_5121236") } } ] }
   ]},
   { category: "Nature", sounds: [
-    { name: "Birds", variants: [
-      { label: "Morning", src: { fs: FS(339, "339326_5121236") } },
-      { label: "Forest",  src: { fs: FS(339, "339326_5121236") } }
-    ]},
+    { name: "Birds",    variants: [ { label: "", src: { fs: FS(339, "339326_5121236") } } ] },
     { name: "Crickets", variants: [ { label: "", src: { fs: FS(352, "352514_5121236") } } ] },
-    { name: "Wind", variants: [
-      { label: "In trees", src: { fs: FS(405, "405561_5121236") } },
-      { label: "Winter",   src: null }
-    ]},
-    { name: "Campfire", variants: [
-      { label: "Crackling", src: { fs: FS(414, "414767_4955305") } },
-      { label: "Soft",      src: { fs: FS(414, "414767_4955305") } }
-    ]}
+    { name: "Wind",     variants: [ { label: "", src: { fs: FS(405, "405561_5121236") } } ] },
+    { name: "Campfire", variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] }
   ]},
   { category: "City", sounds: [
     { name: "Traffic", variants: [ { label: "", src: { fs: FS(705, "705049_1661766") } } ] },
     { name: "Train",   variants: [ { label: "", src: { fs: FS(341, "341208_2792951") } } ] }
   ]},
   { category: "Home", sounds: [
-    { name: "Fan", variants: [
-      { label: "Desk",    src: { gen: "fan-desk" } },
-      { label: "Ceiling", src: { gen: "fan-ceiling" } }
-    ]},
+    { name: "Fan", variants: [ { label: "", src: { gen: "fan-desk" } } ] },
     { name: "Air conditioner", centered: true, variants: [ { label: "", src: { gen: "ac" } } ] },
     { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] }
   ]},
@@ -61,10 +43,6 @@ const CATALOG = [
     { name: "White noise", centered: true, variants: [ { label: "", src: { gen: "white" } } ] },
     { name: "Pink noise",  centered: true, variants: [ { label: "", src: { gen: "pink" } } ] },
     { name: "Brown noise", centered: true, variants: [ { label: "", src: { gen: "brown" } } ] },
-    { name: "Drone", centered: true, variants: [
-      { label: "Warm", src: { gen: "drone-warm" } },
-      { label: "Deep", src: { gen: "drone-deep" } }
-    ]},
     { name: "Chimes", variants: [ { label: "", src: { fs: FS(353, "353194_5121236") } } ] }
   ]}
 ];
@@ -159,16 +137,9 @@ const AudioEngine = (() => {
       case "pink":  noiseThrough("pink");  break;
       case "brown": noiseThrough("brown"); break;
       case "fan-desk":    noiseThrough("pink",  f => { f.type = "lowpass"; f.frequency.value = 500; }); break;
-      case "fan-ceiling": noiseThrough("brown", f => { f.type = "lowpass"; f.frequency.value = 300; }); break;
       case "ac":
         noiseThrough("brown", f => { f.type = "lowpass"; f.frequency.value = 350; });
         osc(120, "sine", 0.02);
-        break;
-      case "drone-warm":
-        osc(110, "triangle", 0.12); osc(110.7, "sine", 0.10); osc(220, "sine", 0.03);
-        break;
-      case "drone-deep":
-        osc(55, "triangle", 0.16); osc(55.4, "sine", 0.12); osc(110, "sine", 0.03);
         break;
     }
     return { gain, panner, nodes };
@@ -345,13 +316,6 @@ CATALOG.forEach(group => {
     el.className = "row";
 
     const hasSource = sound.variants.some(v => v.src);
-    const showChips = sound.variants.length > 1;
-    const chips = showChips
-      ? '<div class="variants" role="radiogroup" aria-label="' + sound.name + ' variant">' +
-        sound.variants.map((v, i) =>
-          '<button class="chip' + (i === 0 ? " on" : "") + '" role="radio" aria-checked="' + (i === 0) + '">' + v.label + '</button>'
-        ).join("") + '</div>'
-      : "";
 
     el.innerHTML =
       '<div class="row-top">' +
@@ -360,7 +324,6 @@ CATALOG.forEach(group => {
         '</button>' +
         '<span class="value">0</span>' +
       '</div>' +
-      chips +
       '<div class="fader" role="slider" tabindex="0" aria-label="' + sound.name + ' volume"' +
       ' aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-orientation="horizontal">' +
         '<div class="fill"></div>' +
@@ -389,7 +352,6 @@ CATALOG.forEach(group => {
       panEl:   el.querySelector(".pan"),
       panDot:  el.querySelector(".pan-dot"),
       panFill: el.querySelector(".pan-fill"),
-      chips: [...el.querySelectorAll(".chip")],
       drifter: makeDrifter(),
       panDrifter: makeDrifter(PAN_DRIFT)
     };
@@ -645,18 +607,4 @@ function wire(ch) {
     render(ch);
   });
 
-  ch.chips.forEach((chip, i) => {
-    chip.addEventListener("click", () => {
-      if (ch.disabled) return;
-      const wasActive = Math.round(ch.level) > 0 && !ch.disabled;
-      ch.variant = i;
-      ch.chips.forEach((c, j) => {
-        c.classList.toggle("on", j === i);
-        c.setAttribute("aria-checked", j === i);
-      });
-      AudioEngine.stop(ch);
-      if (wasActive) AudioEngine.update(ch);
-      render(ch);
-    });
-  });
 }

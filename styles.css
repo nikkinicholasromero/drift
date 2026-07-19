@@ -11,7 +11,7 @@
   --gray: #8a8a90;
   --slider-track: #2a2a2e;
   --slider-fill: #e8e8ea;
-  --chip: #2a2a2e;
+  --press: #2a2a2e;         /* button pressed-state fill */
   --accent: #e8e8ea;
   --accent-ink: #17171a;
 }
@@ -39,7 +39,7 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
   transition: transform 0.12s ease, background-color 0.2s ease, color 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.action:active { transform: scale(0.96); background: var(--chip); }
+.action:active { transform: scale(0.96); background: var(--press); }
 .action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .action.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .action.busy { background: var(--accent); color: var(--accent-ink); border-color: transparent; pointer-events: none; }
@@ -65,17 +65,6 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 .badge { font-size: 10px; font-weight: 500; color: var(--gray); margin-left: 7px; vertical-align: 1px;
          border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
 .value { font-size: 13px; font-weight: 500; color: var(--gray); font-variant-numeric: tabular-nums; }
-.variants { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 10px; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.variants::-webkit-scrollbar { display: none; }
-.chip {
-  flex: 0 0 auto; background: var(--chip); border: none; border-radius: 999px;
-  font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: -0.01em;
-  color: var(--gray); padding: 6px 13px; cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.chip.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .fader { position: relative; height: 40px; border-radius: 13px; background: var(--slider-track); overflow: hidden; cursor: pointer; touch-action: none; outline: none; }
 .fader:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
 .fader .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; background: var(--slider-fill); }
@@ -108,13 +97,9 @@ body.rand .pan-dot, body.rand .pan-fill,
    kept so re-enabling restores the row exactly as it was. */
 .row.disabled .name { color: var(--gray); text-decoration: line-through; }
 .row.disabled .fader,
-.row.disabled .pan,
-.row.disabled .variants { pointer-events: none; }
+.row.disabled .pan { pointer-events: none; }
 .row.disabled .fader { opacity: 0.4; }
 .row.disabled .pan { opacity: 0.25; }
-/* the selected chip is an inverted light pill - left undimmed it becomes the
-   brightest thing in a row that is supposed to read as switched off */
-.row.disabled .variants { opacity: 0.4; }
 .credit { margin: 20px 8px 0; font-size: 11px; color: var(--gray); letter-spacing: -0.01em; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
