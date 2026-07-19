@@ -8,13 +8,11 @@
      34065  "AMBIENT - Rain - Light" by Arctura
      238911 "Seamless Rain Loop" by Iwan 'qubodup' Gabovitch
      346642 "Rain on Windows, Interior, A" by InspectorJ (jshaw.co.uk)
-     400632 "Ambience, Seaside Waves, Close, A" by InspectorJ
      339324 "Stream, Water, C" by InspectorJ
      365921 "Waterfall, Small, B" by InspectorJ
      339326 "Bird Whistling, A" by InspectorJ
      352514 "Ambience, Night Wildlife, A" by InspectorJ
      405561 "Wind, Realistic, A" by InspectorJ
-     343130 "Ticking Clock, A" by InspectorJ
      353194 "Wind Chimes, A" by InspectorJ
      414767 "Crackling Fire" by samarobryn (CC0)
      705049 "Small city ambience with traffic" by felix.blume (CC0)
@@ -29,15 +27,6 @@ const CATALOG = [
       { label: "On roof",   src: { fs: FS(346, "346642_5121236") } },
       { label: "Courtyard", src: { fs: FS(238, "238911_71257") } }
     ]},
-    { name: "Thunderstorm", variants: [
-      { label: "Distant", src: null },
-      { label: "Close",   src: null }
-    ]},
-    { name: "Ocean", variants: [
-      { label: "Gentle",  src: { fs: FS(400, "400632_5121236") } },
-      { label: "Rolling", src: { fs: FS(400, "400632_5121236") } }
-    ]},
-    { name: "Lake",      variants: [ { label: "", src: null } ] },
     { name: "Stream",    variants: [ { label: "", src: { fs: FS(339, "339324_5121236") } } ] },
     { name: "Waterfall", variants: [ { label: "", src: { fs: FS(365, "365921_5121236") } } ] }
   ]},
@@ -54,21 +43,11 @@ const CATALOG = [
     { name: "Campfire", variants: [
       { label: "Crackling", src: { fs: FS(414, "414767_4955305") } },
       { label: "Soft",      src: { fs: FS(414, "414767_4955305") } }
-    ]},
-    { name: "Snowfall", variants: [ { label: "", src: null } ] }
+    ]}
   ]},
   { category: "City", sounds: [
-    { name: "Cafe", variants: [
-      { label: "Quiet", src: null },
-      { label: "Busy",  src: null }
-    ]},
     { name: "Traffic", variants: [ { label: "", src: { fs: FS(705, "705049_1661766") } } ] },
-    { name: "Train", variants: [
-      { label: "Interior", src: { fs: FS(341, "341208_2792951") } },
-      { label: "Passing",  src: { fs: FS(341, "341208_2792951") } }
-    ]},
-    { name: "Airplane", variants: [ { label: "", src: null } ] },
-    { name: "Keyboard", variants: [ { label: "", src: null } ] }
+    { name: "Train",   variants: [ { label: "", src: { fs: FS(341, "341208_2792951") } } ] }
   ]},
   { category: "Home", sounds: [
     { name: "Fan", variants: [
@@ -76,9 +55,7 @@ const CATALOG = [
       { label: "Ceiling", src: { gen: "fan-ceiling" } }
     ]},
     { name: "Air conditioner", centered: true, variants: [ { label: "", src: { gen: "ac" } } ] },
-    { name: "Washing machine", variants: [ { label: "", src: null } ] },
-    { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] },
-    { name: "Clock",           variants: [ { label: "", src: { fs: FS(343, "343130_5121236") } } ] }
+    { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] }
   ]},
   { category: "Noise & tones", sounds: [
     { name: "White noise", centered: true, variants: [ { label: "", src: { gen: "white" } } ] },
