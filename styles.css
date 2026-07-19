@@ -106,6 +106,30 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 .row.muted .fill { opacity: 0.25; }
 body.live .fill { transition: width 0.95s linear; }
 body.rand .fill, .fader.dragging .fill { transition: none !important; }
+/* Pan reads as a different kind of control to the fader - a dot on a line
+   rather than a filled bar - so two sliders never blur into one another.
+   At centre it is nearly invisible, which is the default for every row. */
+.pan { position: relative; height: 24px; margin-top: 6px; cursor: pointer;
+       touch-action: none; outline: none; transition: opacity 0.2s ease; }
+.pan::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+               height: 2px; margin-top: -1px; border-radius: 1px; background: var(--slider-track); }
+/* dot and connector use --ink, not --slider-fill: the fader's near-white
+   reads against its dark trough, but as a 2px line on the panel it vanishes.
+   --ink inverts with the theme, so both schemes stay legible. */
+.pan-tick { position: absolute; left: 50%; top: 50%; width: 2px; height: 9px;
+            margin: -4.5px 0 0 -1px; border-radius: 1px; background: var(--ink); opacity: 0.3; }
+.pan-fill { position: absolute; top: 50%; left: 50%; width: 0; height: 2px;
+            margin-top: -1px; border-radius: 1px; background: var(--ink); opacity: 0.35; }
+.pan-dot { position: absolute; top: 50%; left: 50%; width: 11px; height: 11px;
+           margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--ink);
+           opacity: 0.62; }
+.pan:focus-visible { box-shadow: 0 0 0 3px var(--accent); border-radius: 8px; }
+.pan.off { opacity: 0.2; pointer-events: none; }
+.row:not(.active) .pan { opacity: 0.4; }
+.row.muted .pan { opacity: 0.25; }
+body.live .pan-dot, body.live .pan-fill { transition: left 0.95s linear, width 0.95s linear; }
+body.rand .pan-dot, body.rand .pan-fill,
+.pan.dragging .pan-dot, .pan.dragging .pan-fill { transition: none !important; }
 .credit { margin: 20px 8px 0; font-size: 11px; color: var(--gray); letter-spacing: -0.01em; }
 .bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; padding: 0 20px 24px; }
 .bar-inner {

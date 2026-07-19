@@ -75,16 +75,16 @@ const CATALOG = [
       { label: "Desk",    src: { gen: "fan-desk" } },
       { label: "Ceiling", src: { gen: "fan-ceiling" } }
     ]},
-    { name: "Air conditioner", variants: [ { label: "", src: { gen: "ac" } } ] },
+    { name: "Air conditioner", centered: true, variants: [ { label: "", src: { gen: "ac" } } ] },
     { name: "Washing machine", variants: [ { label: "", src: null } ] },
     { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] },
     { name: "Clock",           variants: [ { label: "", src: { fs: FS(343, "343130_5121236") } } ] }
   ]},
   { category: "Noise & tones", sounds: [
-    { name: "White noise", variants: [ { label: "", src: { gen: "white" } } ] },
-    { name: "Pink noise",  variants: [ { label: "", src: { gen: "pink" } } ] },
-    { name: "Brown noise", variants: [ { label: "", src: { gen: "brown" } } ] },
-    { name: "Drone", variants: [
+    { name: "White noise", centered: true, variants: [ { label: "", src: { gen: "white" } } ] },
+    { name: "Pink noise",  centered: true, variants: [ { label: "", src: { gen: "pink" } } ] },
+    { name: "Brown noise", centered: true, variants: [ { label: "", src: { gen: "brown" } } ] },
+    { name: "Drone", centered: true, variants: [
       { label: "Warm", src: { gen: "drone-warm" } },
       { label: "Deep", src: { gen: "drone-deep" } }
     ]},
@@ -100,11 +100,29 @@ const CATALOG = [
 const AudioEngine = (() => {
   let ctx = null;
   const vol = lvl => Math.pow(lvl / 100, 2); // perceptual curve
+  const PAN_SMOOTH = 0.08;                   // time constant for pan moves
 
   function context() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === "suspended") ctx.resume();
     return ctx;
+  }
+
+  /* Every channel - streamed or generated - ends in the same
+     gain -> panner -> destination chain, so level and pan are
+     applied identically regardless of where the audio came from. */
+  function makeChain(c) {
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    let panner = null;
+    if (c.createStereoPanner) {
+      panner = c.createStereoPanner();
+      gain.connect(panner);
+      panner.connect(c.destination);
+    } else {
+      gain.connect(c.destination);
+    }
+    return { gain, panner };
   }
 
   function noiseBuffer(kind) {
@@ -132,10 +150,8 @@ const AudioEngine = (() => {
 
   function buildGenerated(type) {
     const c = context();
-    const gain = c.createGain();
-    gain.gain.value = 0;
-    gain.connect(c.destination);
-    const nodes = [gain];
+    const { gain, panner } = makeChain(c);
+    const nodes = panner ? [gain, panner] : [gain];
 
     function noiseThrough(kind, filterSetup) {
       const src = c.createBufferSource();
@@ -178,18 +194,33 @@ const AudioEngine = (() => {
         osc(55, "triangle", 0.16); osc(55.4, "sine", 0.12); osc(110, "sine", 0.03);
         break;
     }
-    return { gain, nodes };
+    return { gain, panner, nodes };
   }
 
+  /* Streams are routed through the AudioContext so they can be panned -
+     an <audio> element on its own has volume but no pan. This requires
+     CORS: crossOrigin must be set BEFORE src, or the graph outputs silence. */
   function makeStream(ch, v) {
-    const a = new Audio(v.src.fs);
+    const c = context();
+    const a = new Audio();
+    a.crossOrigin = "anonymous";
     a.loop = true;
     a.preload = "auto";
+    a.src = v.src.fs;
     // surface stream failures in the UI instead of failing silently
     a.addEventListener("error", () => {
       if (ch.onStreamError) ch.onStreamError();
     });
-    return a;
+
+    try {
+      const node = c.createMediaElementSource(a);
+      const { gain, panner } = makeChain(c);
+      node.connect(gain);
+      return { audio: a, gain, panner, nodes: panner ? [node, gain, panner] : [node, gain] };
+    } catch (e) {
+      // Routing unavailable - play the element directly, level via a.volume, no pan.
+      return { audio: a, gain: null, panner: null, nodes: [], unrouted: true };
+    }
   }
 
   return {
@@ -202,37 +233,38 @@ const AudioEngine = (() => {
       if (ch.playing && ch.playing.key !== ch.variant) this.stop(ch);
       if (!v.src) return;
 
-      if ("fs" in v.src) {
-        if (!ch.playing) {
-          if (!active) return;
-          ch.playing = { key: ch.variant, audio: makeStream(ch, v) };
-        }
-        const a = ch.playing.audio;
-        a.volume = target;
-        if (active && a.paused) a.play().catch(() => {});
-        if (!active && !a.paused) a.pause();
-      } else if ("gen" in v.src) {
-        if (ctx && ctx.state === "suspended") ctx.resume();
-        if (!ch.playing) {
-          if (!active) return;
-          ch.playing = { key: ch.variant, gen: buildGenerated(v.src.gen) };
-        }
-        ch.playing.gen.gain.gain.setTargetAtTime(target, context().currentTime, 0.05);
+      if (ctx && ctx.state === "suspended") ctx.resume();
+      if (!ch.playing) {
+        if (!active) return;
+        ch.playing = "fs" in v.src ? makeStream(ch, v) : buildGenerated(v.src.gen);
+        ch.playing.key = ch.variant;
+      }
+
+      const p = ch.playing, t = context().currentTime;
+      if (p.unrouted) p.audio.volume = target;
+      else p.gain.gain.setTargetAtTime(target, t, 0.05);
+      if (p.panner) p.panner.pan.setTargetAtTime(ch.pan / 100, t, PAN_SMOOTH);
+
+      if (p.audio) {
+        if (active && p.audio.paused) p.audio.play().catch(() => {});
+        if (!active && !p.audio.paused) p.audio.pause();
       }
     },
     stop(ch) {
       if (!ch.playing) return;
-      if (ch.playing.audio) { ch.playing.audio.pause(); ch.playing.audio.src = ""; }
-      if (ch.playing.gen) {
-        // fully tear down the generated graph - stop sources, free CPU
-        const g = ch.playing.gen;
-        g.gain.gain.value = 0;
-        g.nodes.forEach(n => {
-          try { if (n.stop) n.stop(); } catch (e) {}
-          try { if (n.disconnect) n.disconnect(); } catch (e) {}
-        });
-      }
+      const p = ch.playing;
+      if (p.audio) { p.audio.pause(); p.audio.src = ""; }
+      // fully tear down the graph - stop sources, disconnect, free CPU
+      if (p.gain) p.gain.gain.value = 0;
+      p.nodes.forEach(n => {
+        try { if (n.stop) n.stop(); } catch (e) {}
+        try { if (n.disconnect) n.disconnect(); } catch (e) {}
+      });
       ch.playing = null;
+    },
+    hasPan() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      return !!(AC && AC.prototype && AC.prototype.createStereoPanner);
     },
     /* iOS unlock: media elements can only start playing if their FIRST
        play() happens inside a user gesture. Live Mix starts streams from
@@ -244,12 +276,14 @@ const AudioEngine = (() => {
       channels.forEach(ch => {
         const v = ch.variants[ch.variant];
         if (!v.src || !("fs" in v.src) || ch.playing) return;
-        const a = makeStream(ch, v);
+        const made = makeStream(ch, v);
+        const a = made.audio;
         a.muted = true;
         const p = a.play();
         if (p) p.then(() => { a.pause(); a.muted = false; a.currentTime = 0; })
                .catch(() => { a.muted = false; });
-        ch.playing = { key: ch.variant, audio: a };
+        made.key = ch.variant;
+        ch.playing = made;
       });
     },
     unlock() { context(); }
@@ -272,23 +306,37 @@ const channels  = [];
 let animating = false;
 let liveTimer = null;
 
-/* ---------- Live Mix drift engine ---------- */
-function makeDrifter() {
+/* ---------- Live Mix drift engine ----------
+   A bounded random walk toward a target. `bias` returns the probability
+   of moving up, which is what pulls a value back toward its resting
+   point: volume mean-reverts downward as it gets loud, pan toward centre. */
+function makeDrifter(opts) {
+  const o = Object.assign({
+    min: 0, max: 100, spanMin: 15, spanRange: 25, step: 1,
+    bias: from => 1 - from / 100
+  }, opts);
   let target = null;
   function pickTarget(from) {
-    const span = 15 + Math.random() * 25;
-    const goUp = Math.random() < (1 - from / 100);
-    return Math.min(100, Math.max(0, Math.round(from + (goUp ? span : -span))));
+    const span = o.spanMin + Math.random() * o.spanRange;
+    const goUp = Math.random() < o.bias(from);
+    return Math.min(o.max, Math.max(o.min, Math.round(from + (goUp ? span : -span))));
   }
   return {
     next(level) {
-      if (target === null || target === level) target = pickTarget(level);
-      return level + Math.sign(target - level);
+      if (target === null || Math.abs(target - level) < o.step) target = pickTarget(level);
+      return level + Math.sign(target - level) * o.step;
     },
     reset() { target = null; },
     sink() { target = 0; }
   };
 }
+
+/* Slow, narrow drift so sounds wander like weather rather than swing about.
+   At 0.5/tick a 40-unit move takes ~80s; +/-70 keeps it musical, not hard-panned. */
+const PAN_DRIFT = {
+  min: -70, max: 70, spanMin: 20, spanRange: 40, step: 0.5,
+  bias: from => 0.5 - from / 200
+};
 
 /* ---------- Live Mix conductor ---------- */
 function conduct() {
@@ -339,6 +387,13 @@ CATALOG.forEach(group => {
       '<div class="fader" role="slider" tabindex="0" aria-label="' + sound.name + ' volume"' +
       ' aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-orientation="horizontal">' +
         '<div class="fill"></div>' +
+      '</div>' +
+      '<div class="pan" role="slider" tabindex="0" aria-label="' + sound.name + ' pan"' +
+      ' aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Center"' +
+      ' aria-orientation="horizontal">' +
+        '<span class="pan-tick"></span>' +
+        '<span class="pan-fill"></span>' +
+        '<span class="pan-dot"></span>' +
       '</div>';
 
     panel.appendChild(el);
@@ -346,15 +401,22 @@ CATALOG.forEach(group => {
     const ch = {
       name: sound.name,
       variants: sound.variants,
+      centered: !!sound.centered,
       level: 0, variant: 0, muted: false, playing: null,
+      pan: 0,
       el,
       fader: el.querySelector(".fader"),
       fill:  el.querySelector(".fill"),
       value: el.querySelector(".value"),
       nameBtn: el.querySelector(".name"),
+      panEl:   el.querySelector(".pan"),
+      panDot:  el.querySelector(".pan-dot"),
+      panFill: el.querySelector(".pan-fill"),
       chips: [...el.querySelectorAll(".chip")],
-      drifter: makeDrifter()
+      drifter: makeDrifter(),
+      panDrifter: makeDrifter(PAN_DRIFT)
     };
+    if (!AudioEngine.hasPan()) ch.panEl.classList.add("off");
     ch.onStreamError = () => {
       if (ch.nameBtn.querySelector(".badge")) return;
       const b = document.createElement("span");
@@ -368,11 +430,25 @@ CATALOG.forEach(group => {
   });
 });
 
+/* Pan readouts stay silent at centre so the default state adds no visual noise.
+   Function declarations, not consts - the catalog loop above calls render()
+   while building rows, before this point in the file is reached. */
+function panLabel(p) { return p < 0 ? "L" + -p : "R" + p; }
+function panText(p)  { return p === 0 ? "Center" : (p < 0 ? "Left " + -p : "Right " + p); }
+
 function render(ch) {
   const pct = Math.round(ch.level);
+  const p = Math.round(ch.pan);
   ch.fill.style.width = ch.level + "%";
-  ch.value.textContent = ch.muted ? "Muted" : pct;
+  ch.value.textContent = ch.muted ? "Muted" : (p === 0 ? String(pct) : pct + "  " + panLabel(p));
   ch.fader.setAttribute("aria-valuenow", pct);
+
+  ch.panDot.style.left   = (50 + ch.pan / 2) + "%";
+  ch.panFill.style.left  = (ch.pan < 0 ? 50 + ch.pan / 2 : 50) + "%";
+  ch.panFill.style.width = Math.abs(ch.pan) / 2 + "%";
+  ch.panEl.setAttribute("aria-valuenow", p);
+  ch.panEl.setAttribute("aria-valuetext", panText(p));
+
   ch.el.classList.toggle("active", pct > 0 && !ch.muted);
   ch.el.classList.toggle("muted", ch.muted);
   AudioEngine.update(ch);
@@ -399,9 +475,19 @@ function randomize() {
   const picked = new Set();
   while (picked.size < count) picked.add(sourced[Math.floor(Math.random() * sourced.length)]);
 
+  /* Spread picked layers across the field, but leave plenty centred - a mix
+     where everything is panned feels as unbalanced as one where nothing is.
+     Bass-heavy beds never move; low frequencies pan badly. */
+  const pickPan = ch => {
+    if (ch.centered || Math.random() < 0.5) return 0;
+    return (Math.random() < 0.5 ? -1 : 1) * Math.round(20 + Math.random() * 45);
+  };
+
   const targets = channels.map((ch, i) => ({
-    ch, from: ch.level,
-    to: picked.has(i) ? 25 + Math.round(Math.random() * 70) : 0
+    ch, from: ch.level, panFrom: ch.pan,
+    to: picked.has(i) ? 25 + Math.round(Math.random() * 70) : 0,
+    // silent layers keep their pan - no reason to churn what you can't hear
+    panTo: picked.has(i) ? pickPan(ch) : ch.pan
   }));
 
   const finish = () => {
@@ -414,7 +500,11 @@ function randomize() {
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (reduce) {
-    targets.forEach(t => { t.ch.level = t.to; t.ch.drifter.reset(); render(t.ch); });
+    targets.forEach(t => {
+      t.ch.level = t.to; t.ch.pan = t.panTo;
+      t.ch.drifter.reset(); t.ch.panDrifter.reset();
+      render(t.ch);
+    });
     finish();
     return;
   }
@@ -424,10 +514,18 @@ function randomize() {
   function step(now) {
     const t = Math.min(1, (now - start) / DURATION);
     const e = easeInOut(t);
-    targets.forEach(({ ch, from, to }) => { ch.level = from + (to - from) * e; render(ch); });
+    targets.forEach(({ ch, from, to, panFrom, panTo }) => {
+      ch.level = from + (to - from) * e;
+      ch.pan   = panFrom + (panTo - panFrom) * e;
+      render(ch);
+    });
     if (t < 1) requestAnimationFrame(step);
     else {
-      targets.forEach(({ ch, to }) => { ch.level = to; ch.drifter.reset(); render(ch); });
+      targets.forEach(({ ch, to, panTo }) => {
+        ch.level = to; ch.pan = panTo;
+        ch.drifter.reset(); ch.panDrifter.reset();
+        render(ch);
+      });
       finish();
     }
   }
@@ -448,6 +546,7 @@ function setLive(on) {
       channels.forEach(ch => {
         if (ch.muted || Math.round(ch.level) === 0) return;
         ch.level = ch.drifter.next(Math.round(ch.level));
+        if (!ch.centered) ch.pan = ch.panDrifter.next(ch.pan);
         render(ch);
       });
     }, 1000);
@@ -463,6 +562,7 @@ resetBtn.addEventListener("click", () => {
   setLive(false);
   channels.forEach(ch => {
     ch.level = 0; ch.muted = false; ch.drifter.reset();
+    ch.pan = 0; ch.panDrifter.reset();
     ch.nameBtn.setAttribute("aria-pressed", "false");
     render(ch);
   });
@@ -508,6 +608,48 @@ function wire(ch) {
       render(ch);
       e.preventDefault();
     }
+  });
+
+  /* ---- pan ---- */
+  const setPan = (value) => {
+    const v = Math.max(-100, Math.min(100, value));
+    // centre detent: hitting exact centre by hand is otherwise near-impossible
+    ch.pan = Math.abs(v) < 6 ? 0 : Math.round(v);
+    ch.panDrifter.reset();
+    render(ch);
+  };
+
+  const panFromPointer = (e) => {
+    const rect = ch.panEl.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    setPan((Math.min(1, Math.max(0, ratio)) * 2 - 1) * 100);
+  };
+
+  ch.panEl.addEventListener("pointerdown", (e) => {
+    ch.panEl.setPointerCapture(e.pointerId);
+    ch.panEl.classList.add("dragging");
+    panFromPointer(e);
+    const move = (ev) => panFromPointer(ev);
+    const up = () => {
+      ch.panEl.classList.remove("dragging");
+      ch.panEl.removeEventListener("pointermove", move);
+      ch.panEl.removeEventListener("pointerup", up);
+      ch.panEl.removeEventListener("pointercancel", up);
+    };
+    ch.panEl.addEventListener("pointermove", move);
+    ch.panEl.addEventListener("pointerup", up);
+    ch.panEl.addEventListener("pointercancel", up);
+  });
+
+  ch.panEl.addEventListener("dblclick", () => setPan(0));
+
+  ch.panEl.addEventListener("keydown", (e) => {
+    let delta = 0;
+    if (e.key === "ArrowUp" || e.key === "ArrowRight") delta = 5;
+    if (e.key === "ArrowDown" || e.key === "ArrowLeft") delta = -5;
+    // Home returns to centre - more useful here than jumping to hard left
+    if (e.key === "Home") { setPan(0); e.preventDefault(); return; }
+    if (delta !== 0) { setPan(Math.round(ch.pan) + delta); e.preventDefault(); }
   });
 
   ch.nameBtn.addEventListener("click", () => {
