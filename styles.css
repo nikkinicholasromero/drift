@@ -1,57 +1,39 @@
+/* Single flat dark theme. No gradients, blur, or shadows anywhere -
+   surfaces are solid fills separated by 1px borders. "On" states are
+   light-on-dark inversions rather than a coloured accent. */
 :root {
-  color-scheme: light dark;
-  --ink: #2b241a;
-  --gray: rgba(70,58,42,0.6);
-  --glass: rgba(255,252,245,0.5);
-  --glass-border: rgba(255,255,255,0.6);
-  --hairline: rgba(70,58,42,0.12);
-  --slider-track: rgba(110,100,80,0.22);
-  --slider-fill: #fdfaf2;
-  --chip: rgba(110,100,80,0.14);
-  --accent: #5d7a52;
-  --accent-ink: #f4f7ef;
-  --shadow: 0 8px 32px rgba(60,48,30,0.12);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #f0ece2; --gray: rgba(235,228,212,0.6);
-    --glass: rgba(32,28,22,0.55); --glass-border: rgba(255,255,255,0.10);
-    --hairline: rgba(235,228,212,0.10); --slider-track: rgba(140,128,104,0.28);
-    --slider-fill: #ece7d9; --chip: rgba(140,128,104,0.22);
-    --accent: #7d9a6f; --accent-ink: #1c2417;
-    --shadow: 0 8px 32px rgba(0,0,0,0.45);
-  }
+  color-scheme: dark;
+  --bg: #0e0e0f;
+  --panel: #17171a;
+  --border: #262629;
+  --hairline: #232326;      /* row dividers, subtler than --border */
+  --ink: #e8e8ea;
+  --gray: #8a8a90;
+  --slider-track: #2a2a2e;
+  --slider-fill: #e8e8ea;
+  --chip: #2a2a2e;
+  --accent: #e8e8ea;
+  --accent-ink: #17171a;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { min-height: 100%; }
 body {
   color: var(--ink);
+  background: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
   display: flex; justify-content: center;
   min-height: 100vh; position: relative; overflow-x: hidden;
-  background: #efeadf;
 }
-.backdrop { position: fixed; inset: 0; z-index: -1; background: #efeadf; overflow: hidden; }
-.blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.6; }
-.blob.a { width: 55vmax; height: 55vmax; top: -20vmax; left: -15vmax; background: #b9c49a; }
-.blob.b { width: 45vmax; height: 45vmax; bottom: -15vmax; right: -12vmax; background: #cbb392; }
-.blob.c { width: 35vmax; height: 35vmax; top: 40%; left: 55%; background: #a8bfa0; }
-@media (prefers-color-scheme: dark) {
-  body, .backdrop { background: #12100c; }
-  .blob { opacity: 0.35; }
-  .blob.a { background: #35402a; } .blob.b { background: #443626; } .blob.c { background: #2b3d2e; }
-}
-.app { width: 100%; max-width: 440px; padding: 64px 20px 130px; }
+.app { width: 100%; max-width: 440px; padding: 64px 20px 48px; }
 header { margin-bottom: 20px; padding: 0 6px; }
 h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 .tagline { margin-top: 4px; font-size: 15px; color: var(--gray); letter-spacing: -0.01em; }
+.status { margin-top: 10px; font-size: 13px; color: var(--gray); letter-spacing: -0.01em; }
 .actions { display: flex; gap: 10px; margin-bottom: 24px; }
 .action {
-  flex: 1; background: var(--glass);
-  backdrop-filter: blur(28px) saturate(1.7); -webkit-backdrop-filter: blur(28px) saturate(1.7);
-  border: 1px solid var(--glass-border); border-radius: 16px;
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.35);
+  flex: 1; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 16px;
   font-family: inherit; font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
   color: var(--ink); padding: 13px 0; cursor: pointer;
   transition: transform 0.12s ease, background-color 0.2s ease, color 0.2s ease;
@@ -67,14 +49,9 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 .section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray); margin: 26px 8px 10px; }
 .section-label:first-of-type { margin-top: 0; }
 .panel {
-  background: var(--glass);
-  backdrop-filter: blur(28px) saturate(1.7); -webkit-backdrop-filter: blur(28px) saturate(1.7);
-  border: 1px solid var(--glass-border); border-radius: 26px;
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.35);
+  background: var(--panel);
+  border: 1px solid var(--border); border-radius: 26px;
   padding: 8px 20px;
-}
-@media (prefers-color-scheme: dark) {
-  .panel, .action, .bar-inner { box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.08); }
 }
 .row { padding: 16px 0 18px; border-bottom: 1px solid var(--hairline); }
 .row:last-child { border-bottom: none; }
@@ -86,9 +63,8 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 }
 .name:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 .badge { font-size: 10px; font-weight: 500; color: var(--gray); margin-left: 7px; vertical-align: 1px;
-         border: 1px solid var(--hairline); border-radius: 999px; padding: 1px 7px; }
+         border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
 .value { font-size: 13px; font-weight: 500; color: var(--gray); font-variant-numeric: tabular-nums; }
-.row.muted .name { color: var(--gray); text-decoration: line-through; }
 .variants { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 10px; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .variants::-webkit-scrollbar { display: none; }
 .chip {
@@ -103,7 +79,6 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 .fader { position: relative; height: 40px; border-radius: 13px; background: var(--slider-track); overflow: hidden; cursor: pointer; touch-action: none; outline: none; }
 .fader:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
 .fader .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; background: var(--slider-fill); }
-.row.muted .fill { opacity: 0.25; }
 body.live .fill { transition: width 0.95s linear; }
 body.rand .fill, .fader.dragging .fill { transition: none !important; }
 /* Pan reads as a different kind of control to the fader - a dot on a line
@@ -113,9 +88,8 @@ body.rand .fill, .fader.dragging .fill { transition: none !important; }
        touch-action: none; outline: none; transition: opacity 0.2s ease; }
 .pan::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
                height: 2px; margin-top: -1px; border-radius: 1px; background: var(--slider-track); }
-/* dot and connector use --ink, not --slider-fill: the fader's near-white
-   reads against its dark trough, but as a 2px line on the panel it vanishes.
-   --ink inverts with the theme, so both schemes stay legible. */
+/* dot and connector use --ink, not --slider-fill: the fader's near-white reads
+   against its dark trough, but as a 2px line on the panel it would vanish. */
 .pan-tick { position: absolute; left: 50%; top: 50%; width: 2px; height: 9px;
             margin: -4.5px 0 0 -1px; border-radius: 1px; background: var(--ink); opacity: 0.3; }
 .pan-fill { position: absolute; top: 50%; left: 50%; width: 0; height: 2px;
@@ -126,23 +100,22 @@ body.rand .fill, .fader.dragging .fill { transition: none !important; }
 .pan:focus-visible { box-shadow: 0 0 0 3px var(--accent); border-radius: 8px; }
 .pan.off { opacity: 0.2; pointer-events: none; }
 .row:not(.active) .pan { opacity: 0.4; }
-.row.muted .pan { opacity: 0.25; }
 body.live .pan-dot, body.live .pan-fill { transition: left 0.95s linear, width 0.95s linear; }
 body.rand .pan-dot, body.rand .pan-fill,
 .pan.dragging .pan-dot, .pan.dragging .pan-fill { transition: none !important; }
+/* Disabled: the sound is off the table entirely. Its controls go inert so
+   dragging them can't imply something is happening, but level and pan are
+   kept so re-enabling restores the row exactly as it was. */
+.row.disabled .name { color: var(--gray); text-decoration: line-through; }
+.row.disabled .fader,
+.row.disabled .pan,
+.row.disabled .variants { pointer-events: none; }
+.row.disabled .fader { opacity: 0.4; }
+.row.disabled .pan { opacity: 0.25; }
+/* the selected chip is an inverted light pill - left undimmed it becomes the
+   brightest thing in a row that is supposed to read as switched off */
+.row.disabled .variants { opacity: 0.4; }
 .credit { margin: 20px 8px 0; font-size: 11px; color: var(--gray); letter-spacing: -0.01em; }
-.bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; padding: 0 20px 24px; }
-.bar-inner {
-  pointer-events: auto; width: 100%; max-width: 400px;
-  display: flex; justify-content: space-between; align-items: center;
-  background: var(--glass);
-  backdrop-filter: blur(28px) saturate(1.7); -webkit-backdrop-filter: blur(28px) saturate(1.7);
-  border: 1px solid var(--glass-border); border-radius: 999px;
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.35);
-  padding: 14px 22px; font-size: 13px; font-weight: 500; color: var(--gray); letter-spacing: -0.01em;
-}
-#reset { background: none; border: none; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; padding: 2px 0; }
-#reset:hover, #reset:focus-visible { opacity: 0.6; outline: none; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
   .action.on .live-dot { animation: none; }

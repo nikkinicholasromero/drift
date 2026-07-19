@@ -226,7 +226,7 @@ const AudioEngine = (() => {
   return {
     update(ch) {
       const v = ch.variants[ch.variant];
-      const active = !ch.muted && ch.level > 0;
+      const active = !ch.disabled && ch.level > 0;
       const target = active ? vol(Math.round(ch.level)) : 0;
 
       // stop whatever belongs to a different variant
@@ -275,7 +275,7 @@ const AudioEngine = (() => {
       context();
       channels.forEach(ch => {
         const v = ch.variants[ch.variant];
-        if (!v.src || !("fs" in v.src) || ch.playing) return;
+        if (!v.src || !("fs" in v.src) || ch.playing || ch.disabled) return;
         const made = makeStream(ch, v);
         const a = made.audio;
         a.muted = true;
@@ -340,9 +340,9 @@ const PAN_DRIFT = {
 
 /* ---------- Live Mix conductor ---------- */
 function conduct() {
-  const eligible = channels.filter(c => c.variants[c.variant].src);
-  const silent = eligible.filter(c => !c.muted && Math.round(c.level) === 0);
-  const active = eligible.filter(c => !c.muted && Math.round(c.level) > 0);
+  const eligible = channels.filter(c => c.variants[c.variant].src && !c.disabled);
+  const silent = eligible.filter(c => Math.round(c.level) === 0);
+  const active = eligible.filter(c => Math.round(c.level) > 0);
   if (Math.random() < 0.05 && silent.length) {
     const ch = silent[Math.floor(Math.random() * silent.length)];
     ch.level = 1; ch.drifter.reset(); render(ch);
@@ -378,7 +378,7 @@ CATALOG.forEach(group => {
 
     el.innerHTML =
       '<div class="row-top">' +
-        '<button class="name" aria-pressed="false" title="Mute / unmute">' + sound.name +
+        '<button class="name" aria-pressed="false" title="Disable / enable">' + sound.name +
           (hasSource ? "" : '<span class="badge">no audio yet</span>') +
         '</button>' +
         '<span class="value">0</span>' +
@@ -402,7 +402,7 @@ CATALOG.forEach(group => {
       name: sound.name,
       variants: sound.variants,
       centered: !!sound.centered,
-      level: 0, variant: 0, muted: false, playing: null,
+      level: 0, variant: 0, disabled: false, playing: null,
       pan: 0,
       el,
       fader: el.querySelector(".fader"),
@@ -440,8 +440,10 @@ function render(ch) {
   const pct = Math.round(ch.level);
   const p = Math.round(ch.pan);
   ch.fill.style.width = ch.level + "%";
-  ch.value.textContent = ch.muted ? "Muted" : (p === 0 ? String(pct) : pct + "  " + panLabel(p));
+  ch.value.textContent = ch.disabled ? "Off" : (p === 0 ? String(pct) : pct + "  " + panLabel(p));
   ch.fader.setAttribute("aria-valuenow", pct);
+  ch.fader.setAttribute("aria-disabled", ch.disabled);
+  ch.panEl.setAttribute("aria-disabled", ch.disabled);
 
   ch.panDot.style.left   = (50 + ch.pan / 2) + "%";
   ch.panFill.style.left  = (ch.pan < 0 ? 50 + ch.pan / 2 : 50) + "%";
@@ -449,14 +451,14 @@ function render(ch) {
   ch.panEl.setAttribute("aria-valuenow", p);
   ch.panEl.setAttribute("aria-valuetext", panText(p));
 
-  ch.el.classList.toggle("active", pct > 0 && !ch.muted);
-  ch.el.classList.toggle("muted", ch.muted);
+  ch.el.classList.toggle("active", pct > 0 && !ch.disabled);
+  ch.el.classList.toggle("disabled", ch.disabled);
   AudioEngine.update(ch);
   updateStatus();
 }
 
 function updateStatus() {
-  const n = channels.filter(c => Math.round(c.level) > 0 && !c.muted).length;
+  const n = channels.filter(c => Math.round(c.level) > 0 && !c.disabled).length;
   statusEl.textContent = n === 0 ? "No layers active" : n === 1 ? "1 layer active" : n + " layers active";
 }
 
@@ -470,7 +472,7 @@ function randomize() {
   randomBtn.classList.add("busy");
   randomBtn.textContent = "Mixing…";
 
-  const sourced = channels.map((c, i) => c.variants[c.variant].src ? i : -1).filter(i => i >= 0);
+  const sourced = channels.map((c, i) => c.variants[c.variant].src && !c.disabled ? i : -1).filter(i => i >= 0);
   const count = Math.min(sourced.length, 3 + Math.floor(Math.random() * 3));
   const picked = new Set();
   while (picked.size < count) picked.add(sourced[Math.floor(Math.random() * sourced.length)]);
@@ -483,12 +485,15 @@ function randomize() {
     return (Math.random() < 0.5 ? -1 : 1) * Math.round(20 + Math.random() * 45);
   };
 
+  // map before filtering so the index-based `picked` lookup stays correct.
+  // Disabled channels are dropped entirely rather than animated to 0 - their
+  // level is a preserved setting, not part of the mix.
   const targets = channels.map((ch, i) => ({
     ch, from: ch.level, panFrom: ch.pan,
     to: picked.has(i) ? 25 + Math.round(Math.random() * 70) : 0,
     // silent layers keep their pan - no reason to churn what you can't hear
     panTo: picked.has(i) ? pickPan(ch) : ch.pan
-  }));
+  })).filter(t => !t.ch.disabled);
 
   const finish = () => {
     animating = false;
@@ -538,13 +543,13 @@ function setLive(on) {
   liveBtn.setAttribute("aria-pressed", on);
   document.body.classList.toggle("live", on);
   if (on) {
-    const anyActive = channels.some(c => Math.round(c.level) > 0 && !c.muted);
+    const anyActive = channels.some(c => Math.round(c.level) > 0 && !c.disabled);
     if (!anyActive) randomize();
     liveTimer = setInterval(() => {
       if (animating) return;
       conduct();
       channels.forEach(ch => {
-        if (ch.muted || Math.round(ch.level) === 0) return;
+        if (ch.disabled || Math.round(ch.level) === 0) return;
         ch.level = ch.drifter.next(Math.round(ch.level));
         if (!ch.centered) ch.pan = ch.panDrifter.next(ch.pan);
         render(ch);
@@ -560,22 +565,25 @@ randomBtn.addEventListener("click", randomize);
 liveBtn.addEventListener("click", () => setLive(liveTimer === null));
 resetBtn.addEventListener("click", () => {
   setLive(false);
+  // Reset clears the mix, not your preferences: disabled sounds stay disabled,
+  // otherwise you would have to switch them off again after every reset.
   channels.forEach(ch => {
-    ch.level = 0; ch.muted = false; ch.drifter.reset();
+    ch.level = 0; ch.drifter.reset();
     ch.pan = 0; ch.panDrifter.reset();
-    ch.nameBtn.setAttribute("aria-pressed", "false");
     render(ch);
   });
 });
 
 /* ---------- per-channel wiring ---------- */
 function wire(ch) {
+  /* A disabled sound stays disabled no matter what its level or pan is set to,
+     so every input path bails early rather than quietly switching it back on. */
   const setFromPointer = (e) => {
+    if (ch.disabled) return;
     const rect = ch.fader.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
     ch.level = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
     ch.drifter.reset();
-    if (ch.level > 0) ch.muted = false;
     render(ch);
   };
 
@@ -596,15 +604,15 @@ function wire(ch) {
   });
 
   ch.fader.addEventListener("keydown", (e) => {
+    if (ch.disabled) return;
     let delta = 0;
     if (e.key === "ArrowUp" || e.key === "ArrowRight") delta = 5;
     if (e.key === "ArrowDown" || e.key === "ArrowLeft") delta = -5;
     if (e.key === "Home") { ch.level = 0; render(ch); e.preventDefault(); return; }
-    if (e.key === "End")  { ch.level = 100; ch.muted = false; render(ch); e.preventDefault(); return; }
+    if (e.key === "End")  { ch.level = 100; render(ch); e.preventDefault(); return; }
     if (delta !== 0) {
       ch.level = Math.min(100, Math.max(0, Math.round(ch.level) + delta));
       ch.drifter.reset();
-      if (ch.level > 0) ch.muted = false;
       render(ch);
       e.preventDefault();
     }
@@ -612,6 +620,7 @@ function wire(ch) {
 
   /* ---- pan ---- */
   const setPan = (value) => {
+    if (ch.disabled) return;
     const v = Math.max(-100, Math.min(100, value));
     // centre detent: hitting exact centre by hand is otherwise near-impossible
     ch.pan = Math.abs(v) < 6 ? 0 : Math.round(v);
@@ -644,6 +653,7 @@ function wire(ch) {
   ch.panEl.addEventListener("dblclick", () => setPan(0));
 
   ch.panEl.addEventListener("keydown", (e) => {
+    if (ch.disabled) return;
     let delta = 0;
     if (e.key === "ArrowUp" || e.key === "ArrowRight") delta = 5;
     if (e.key === "ArrowDown" || e.key === "ArrowLeft") delta = -5;
@@ -653,14 +663,15 @@ function wire(ch) {
   });
 
   ch.nameBtn.addEventListener("click", () => {
-    ch.muted = !ch.muted;
-    ch.nameBtn.setAttribute("aria-pressed", ch.muted);
+    ch.disabled = !ch.disabled;
+    ch.nameBtn.setAttribute("aria-pressed", ch.disabled);
     render(ch);
   });
 
   ch.chips.forEach((chip, i) => {
     chip.addEventListener("click", () => {
-      const wasActive = Math.round(ch.level) > 0 && !ch.muted;
+      if (ch.disabled) return;
+      const wasActive = Math.round(ch.level) > 0 && !ch.disabled;
       ch.variant = i;
       ch.chips.forEach((c, j) => {
         c.classList.toggle("on", j === i);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <title>Drift</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,28 +12,21 @@
 </head>
 <body>
 
-<div class="backdrop"><div class="blob a"></div><div class="blob b"></div><div class="blob c"></div></div>
-
 <div class="app">
   <header>
     <h1>Drift</h1>
     <p class="tagline">Mix ambient sound layers</p>
+    <p class="status" id="status">No layers active</p>
   </header>
 
   <div class="actions">
     <button class="action" id="randomize">Randomize</button>
     <button class="action" id="livemix" aria-pressed="false">Live Mix<span class="live-dot"></span></button>
+    <button class="action" id="reset">Reset</button>
   </div>
 
   <div id="catalog"></div>
   <p class="credit">Streaming previews from Freesound.org (CC0/CC-BY recordings; full credits in source). Noise &amp; tone layers are generated locally.</p>
-</div>
-
-<div class="bar">
-  <div class="bar-inner">
-    <span id="status">No layers active</span>
-    <button id="reset">Reset</button>
-  </div>
 </div>
 
 <script src="script.js"></script>
