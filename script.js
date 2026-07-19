@@ -2,8 +2,9 @@
    Streaming previews from freesound.org (played from their CDN,
    to be downloaded and bundled later). Format:
    { fs: [folder, "id_userid"] } -> https://cdn.freesound.org/previews/folder/id_userid-lq.mp3
-   { gen: "type" } -> generated locally with Web Audio
    null -> no source found yet
+   Every layer is a real recording. Nothing is synthesised, because
+   Web Audio cannot play while an iPhone is locked - see the engine note.
    Credits (license marked per entry):
      34065  "AMBIENT - Rain - Light" by Arctura                       (CC-BY)
      339324 "Stream, Water, C" by InspectorJ                          (CC-BY)
@@ -53,7 +54,8 @@ const CATALOG = [
     { name: "Wolves",   variants: [ { label: "", src: { fs: FS(158, "158780_229952") } } ] },
     { name: "Wind",     variants: [ { label: "", src: { fs: FS(405, "405561_5121236") } } ] },
     { name: "Blizzard", variants: [ { label: "", src: { fs: FS(505, "505999_7846219") } } ] },
-    { name: "Campfire", variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] }
+    { name: "Campfire", variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] },
+    { name: "Chimes",   variants: [ { label: "", src: { fs: FS(353, "353194_5121236") } } ] }
   ]},
   { category: "City", sounds: [
     { name: "Traffic",      variants: [ { label: "", src: { fs: FS(705, "705049_1661766") } } ] },
@@ -64,128 +66,32 @@ const CATALOG = [
     { name: "Church bells", variants: [ { label: "", src: { fs: FS(178, "178648_2580450") } } ] }
   ]},
   { category: "Home", sounds: [
-    { name: "Fan", variants: [ { label: "", src: { gen: "fan-desk" } } ] },
-    { name: "Air conditioner", centered: true, variants: [ { label: "", src: { gen: "ac" } } ] },
-    { name: "Refrigerator",    centered: true, variants: [ { label: "", src: { fs: FS(780, "780515_11318300") } } ] },
+    { name: "Refrigerator",    variants: [ { label: "", src: { fs: FS(780, "780515_11318300") } } ] },
     { name: "Washing machine", variants: [ { label: "", src: { fs: FS(151, "151279_2578041") } } ] },
     { name: "Fireplace",       variants: [ { label: "", src: { fs: FS(414, "414767_4955305") } } ] },
     { name: "Purring cat",     variants: [ { label: "", src: { fs: FS(496, "496275_10774386") } } ] },
     { name: "Keyboard",        variants: [ { label: "", src: { fs: FS(380, "380135_3249786") } } ] },
     { name: "Clock",           variants: [ { label: "", src: { fs: FS(242, "242008_4363393") } } ] }
-  ]},
-  { category: "Noise & tones", sounds: [
-    { name: "White noise", centered: true, variants: [ { label: "", src: { gen: "white" } } ] },
-    { name: "Pink noise",  centered: true, variants: [ { label: "", src: { gen: "pink" } } ] },
-    { name: "Brown noise", centered: true, variants: [ { label: "", src: { gen: "brown" } } ] },
-    { name: "Chimes", variants: [ { label: "", src: { fs: FS(353, "353194_5121236") } } ] }
   ]}
 ];
 
 /* ================= AUDIO ENGINE =================
-   One place for all playback. Streams use looped <audio>
-   elements pointing at Freesound preview mp3s. Generated
-   sounds use Web Audio (noise buffers / oscillators).
+   Deliberately NO Web Audio. Every layer is a plain looped <audio>
+   element, because iOS stops any AudioContext output the moment the
+   screen locks - it treats Web Audio as "Ambient" audio and suspends
+   it for backgrounded pages, while media elements keep playing.
+   That rules out panning (an <audio> element has volume but no pan)
+   and locally generated noise, which is why neither exists here.
    update(ch) reconciles audio with the channel state. */
 const AudioEngine = (() => {
-  let ctx = null;
   const vol = lvl => Math.pow(lvl / 100, 2); // perceptual curve
-  const PAN_SMOOTH = 0.08;                   // time constant for pan moves
 
-  function context() {
-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === "suspended") ctx.resume();
-    return ctx;
-  }
-
-  /* Every channel - streamed or generated - ends in the same
-     gain -> panner -> destination chain, so level and pan are
-     applied identically regardless of where the audio came from. */
-  function makeChain(c) {
-    const gain = c.createGain();
-    gain.gain.value = 0;
-    let panner = null;
-    if (c.createStereoPanner) {
-      panner = c.createStereoPanner();
-      gain.connect(panner);
-      panner.connect(c.destination);
-    } else {
-      gain.connect(c.destination);
-    }
-    return { gain, panner };
-  }
-
-  function noiseBuffer(kind) {
-    const c = context();
-    const len = c.sampleRate * 2;
-    const buf = c.createBuffer(1, len, c.sampleRate);
-    const d = buf.getChannelData(0);
-    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0, last=0;
-    for (let i = 0; i < len; i++) {
-      const w = Math.random() * 2 - 1;
-      if (kind === "white") d[i] = w * 0.3;
-      else if (kind === "pink") {
-        b0 = 0.99886*b0 + w*0.0555179; b1 = 0.99332*b1 + w*0.0750759;
-        b2 = 0.96900*b2 + w*0.1538520; b3 = 0.86650*b3 + w*0.3104856;
-        b4 = 0.55000*b4 + w*0.5329522; b5 = -0.7616*b5 - w*0.0168980;
-        d[i] = (b0+b1+b2+b3+b4+b5+b6 + w*0.5362) * 0.09;
-        b6 = w * 0.115926;
-      } else { // brown
-        last = (last + 0.02 * w) / 1.02;
-        d[i] = last * 3.0;
-      }
-    }
-    return buf;
-  }
-
-  function buildGenerated(type) {
-    const c = context();
-    const { gain, panner } = makeChain(c);
-    const nodes = panner ? [gain, panner] : [gain];
-
-    function noiseThrough(kind, filterSetup) {
-      const src = c.createBufferSource();
-      src.buffer = noiseBuffer(kind);
-      src.loop = true;
-      let out = src;
-      if (filterSetup) {
-        const f = c.createBiquadFilter();
-        filterSetup(f);
-        src.connect(f); out = f; nodes.push(f);
-      }
-      out.connect(gain);
-      src.start();
-      nodes.push(src);
-    }
-
-    function osc(freq, type2, g) {
-      const o = c.createOscillator();
-      o.type = type2; o.frequency.value = freq;
-      const og = c.createGain(); og.gain.value = g;
-      o.connect(og); og.connect(gain);
-      o.start();
-      nodes.push(o, og);
-    }
-
-    switch (type) {
-      case "white": noiseThrough("white"); break;
-      case "pink":  noiseThrough("pink");  break;
-      case "brown": noiseThrough("brown"); break;
-      case "fan-desk":    noiseThrough("pink",  f => { f.type = "lowpass"; f.frequency.value = 500; }); break;
-      case "ac":
-        noiseThrough("brown", f => { f.type = "lowpass"; f.frequency.value = 350; });
-        osc(120, "sine", 0.02);
-        break;
-    }
-    return { gain, panner, nodes };
-  }
-
-  /* Streams are routed through the AudioContext so they can be panned -
-     an <audio> element on its own has volume but no pan. This requires
-     CORS: crossOrigin must be set BEFORE src, or the graph outputs silence. */
+  /* No crossOrigin: it was only ever needed to satisfy CORS for
+     createMediaElementSource. Without Web Audio routing these are
+     ordinary media requests, which also removes the CORS failure
+     that intermittently produced a "stream blocked" badge. */
   function makeStream(ch, v) {
-    const c = context();
     const a = new Audio();
-    a.crossOrigin = "anonymous";
     a.loop = true;
     a.preload = "auto";
     a.src = v.src.fs;
@@ -193,60 +99,34 @@ const AudioEngine = (() => {
     a.addEventListener("error", () => {
       if (ch.onStreamError) ch.onStreamError();
     });
-
-    try {
-      const node = c.createMediaElementSource(a);
-      const { gain, panner } = makeChain(c);
-      node.connect(gain);
-      return { audio: a, gain, panner, nodes: panner ? [node, gain, panner] : [node, gain] };
-    } catch (e) {
-      // Routing unavailable - play the element directly, level via a.volume, no pan.
-      return { audio: a, gain: null, panner: null, nodes: [], unrouted: true };
-    }
+    return { audio: a };
   }
 
   return {
     update(ch) {
       const v = ch.variants[ch.variant];
-      const active = !ch.disabled && ch.level > 0;
-      const target = active ? vol(Math.round(ch.level)) : 0;
+      const active = !ch.disabled && ch.level > 0 && !masterPaused;
 
       // stop whatever belongs to a different variant
       if (ch.playing && ch.playing.key !== ch.variant) this.stop(ch);
       if (!v.src) return;
 
-      if (ctx && ctx.state === "suspended") ctx.resume();
       if (!ch.playing) {
         if (!active) return;
-        ch.playing = "fs" in v.src ? makeStream(ch, v) : buildGenerated(v.src.gen);
+        ch.playing = makeStream(ch, v);
         ch.playing.key = ch.variant;
       }
 
-      const p = ch.playing, t = context().currentTime;
-      if (p.unrouted) p.audio.volume = target;
-      else p.gain.gain.setTargetAtTime(target, t, 0.05);
-      if (p.panner) p.panner.pan.setTargetAtTime(ch.pan / 100, t, PAN_SMOOTH);
-
-      if (p.audio) {
-        if (active && p.audio.paused) p.audio.play().catch(() => {});
-        if (!active && !p.audio.paused) p.audio.pause();
-      }
+      const a = ch.playing.audio;
+      a.volume = active ? vol(Math.round(ch.level)) : 0;
+      if (active && a.paused) a.play().catch(() => {});
+      if (!active && !a.paused) a.pause();
     },
     stop(ch) {
       if (!ch.playing) return;
-      const p = ch.playing;
-      if (p.audio) { p.audio.pause(); p.audio.src = ""; }
-      // fully tear down the graph - stop sources, disconnect, free CPU
-      if (p.gain) p.gain.gain.value = 0;
-      p.nodes.forEach(n => {
-        try { if (n.stop) n.stop(); } catch (e) {}
-        try { if (n.disconnect) n.disconnect(); } catch (e) {}
-      });
+      ch.playing.audio.pause();
+      ch.playing.audio.src = "";
       ch.playing = null;
-    },
-    hasPan() {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      return !!(AC && AC.prototype && AC.prototype.createStereoPanner);
     },
     /* iOS unlock: media elements can only start playing if their FIRST
        play() happens inside a user gesture. Live Mix starts streams from
@@ -254,10 +134,9 @@ const AudioEngine = (() => {
        play muted for an instant, pause. After that, programmatic play()
        is allowed for those elements. */
     primeAll(channels) {
-      context();
       channels.forEach(ch => {
         const v = ch.variants[ch.variant];
-        if (!v.src || !("fs" in v.src) || ch.playing || ch.disabled) return;
+        if (!v.src || ch.playing || ch.disabled) return;
         const made = makeStream(ch, v);
         const a = made.audio;
         a.muted = true;
@@ -267,13 +146,11 @@ const AudioEngine = (() => {
         made.key = ch.variant;
         ch.playing = made;
       });
-    },
-    unlock() { context(); }
+    }
   };
 })();
 
 document.addEventListener("pointerdown", () => {
-  AudioEngine.unlock();
   AudioEngine.primeAll(channels);
 }, { once: true });
 
@@ -287,38 +164,31 @@ const channels  = [];
 
 let animating = false;
 let liveTimer = null;
+/* One logical transport for the whole mix, driven by the lock screen.
+   iOS binds its controls to a single arbitrary <audio> element, so
+   without this a lock-screen pause would stop one layer and leave the
+   rest playing. Levels are untouched, so resuming restores the mix. */
+let masterPaused = false;
 
 /* ---------- Live Mix drift engine ----------
-   A bounded random walk toward a target. `bias` returns the probability
-   of moving up, which is what pulls a value back toward its resting
-   point: volume mean-reverts downward as it gets loud, pan toward centre. */
-function makeDrifter(opts) {
-  const o = Object.assign({
-    min: 0, max: 100, spanMin: 15, spanRange: 25, step: 1,
-    bias: from => 1 - from / 100
-  }, opts);
+   A bounded random walk toward a target, mean-reverting downward as a
+   level gets loud so the mix does not creep towards everything at 100. */
+function makeDrifter() {
   let target = null;
   function pickTarget(from) {
-    const span = o.spanMin + Math.random() * o.spanRange;
-    const goUp = Math.random() < o.bias(from);
-    return Math.min(o.max, Math.max(o.min, Math.round(from + (goUp ? span : -span))));
+    const span = 15 + Math.random() * 25;
+    const goUp = Math.random() < (1 - from / 100);
+    return Math.min(100, Math.max(0, Math.round(from + (goUp ? span : -span))));
   }
   return {
     next(level) {
-      if (target === null || Math.abs(target - level) < o.step) target = pickTarget(level);
-      return level + Math.sign(target - level) * o.step;
+      if (target === null || target === level) target = pickTarget(level);
+      return level + Math.sign(target - level);
     },
     reset() { target = null; },
     sink() { target = 0; }
   };
 }
-
-/* Slow, narrow drift so sounds wander like weather rather than swing about.
-   At 0.5/tick a 40-unit move takes ~80s; +/-70 keeps it musical, not hard-panned. */
-const PAN_DRIFT = {
-  min: -70, max: 70, spanMin: 20, spanRange: 40, step: 0.5,
-  bias: from => 0.5 - from / 200
-};
 
 /* ---------- Live Mix conductor ---------- */
 function conduct() {
@@ -361,13 +231,6 @@ CATALOG.forEach(group => {
       '<div class="fader" role="slider" tabindex="0" aria-label="' + sound.name + ' volume"' +
       ' aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-orientation="horizontal">' +
         '<div class="fill"></div>' +
-      '</div>' +
-      '<div class="pan" role="slider" tabindex="0" aria-label="' + sound.name + ' pan"' +
-      ' aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Center"' +
-      ' aria-orientation="horizontal">' +
-        '<span class="pan-tick"></span>' +
-        '<span class="pan-fill"></span>' +
-        '<span class="pan-dot"></span>' +
       '</div>';
 
     panel.appendChild(el);
@@ -375,21 +238,14 @@ CATALOG.forEach(group => {
     const ch = {
       name: sound.name,
       variants: sound.variants,
-      centered: !!sound.centered,
       level: 0, variant: 0, disabled: false, playing: null,
-      pan: 0,
       el,
       fader: el.querySelector(".fader"),
       fill:  el.querySelector(".fill"),
       value: el.querySelector(".value"),
       nameBtn: el.querySelector(".name"),
-      panEl:   el.querySelector(".pan"),
-      panDot:  el.querySelector(".pan-dot"),
-      panFill: el.querySelector(".pan-fill"),
-      drifter: makeDrifter(),
-      panDrifter: makeDrifter(PAN_DRIFT)
+      drifter: makeDrifter()
     };
-    if (!AudioEngine.hasPan()) ch.panEl.classList.add("off");
     ch.onStreamError = () => {
       if (ch.nameBtn.querySelector(".badge")) return;
       const b = document.createElement("span");
@@ -403,27 +259,12 @@ CATALOG.forEach(group => {
   });
 });
 
-/* Pan readouts stay silent at centre so the default state adds no visual noise.
-   Function declarations, not consts - the catalog loop above calls render()
-   while building rows, before this point in the file is reached. */
-function panLabel(p) { return p < 0 ? "L" + -p : "R" + p; }
-function panText(p)  { return p === 0 ? "Center" : (p < 0 ? "Left " + -p : "Right " + p); }
-
 function render(ch) {
   const pct = Math.round(ch.level);
-  const p = Math.round(ch.pan);
   ch.fill.style.width = ch.level + "%";
-  ch.value.textContent = ch.disabled ? "Off" : (p === 0 ? String(pct) : pct + "  " + panLabel(p));
+  ch.value.textContent = ch.disabled ? "Off" : String(pct);
   ch.fader.setAttribute("aria-valuenow", pct);
   ch.fader.setAttribute("aria-disabled", ch.disabled);
-  ch.panEl.setAttribute("aria-disabled", ch.disabled);
-
-  ch.panDot.style.left   = (50 + ch.pan / 2) + "%";
-  ch.panFill.style.left  = (ch.pan < 0 ? 50 + ch.pan / 2 : 50) + "%";
-  ch.panFill.style.width = Math.abs(ch.pan) / 2 + "%";
-  ch.panEl.setAttribute("aria-valuenow", p);
-  ch.panEl.setAttribute("aria-valuetext", panText(p));
-
   ch.el.classList.toggle("active", pct > 0 && !ch.disabled);
   ch.el.classList.toggle("disabled", ch.disabled);
   AudioEngine.update(ch);
@@ -433,6 +274,31 @@ function render(ch) {
 function updateStatus() {
   const n = channels.filter(c => Math.round(c.level) > 0 && !c.disabled).length;
   statusEl.textContent = n === 0 ? "No layers active" : n === 1 ? "1 layer active" : n + " layers active";
+  updateMediaSession(n);
+}
+
+/* ---------- lock screen / background transport ---------- */
+function setMasterPaused(v) {
+  masterPaused = v;
+  channels.forEach(render);
+  if ("mediaSession" in navigator)
+    navigator.mediaSession.playbackState = v ? "paused" : "playing";
+}
+
+function updateMediaSession(n) {
+  if (!("mediaSession" in navigator)) return;
+  if (window.MediaMetadata) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: "Drift",
+      artist: n === 0 ? "No layers active" : n === 1 ? "1 layer active" : n + " layers active"
+    });
+  }
+  if (n > 0 && !masterPaused) navigator.mediaSession.playbackState = "playing";
+}
+
+if ("mediaSession" in navigator) {
+  navigator.mediaSession.setActionHandler("play",  () => setMasterPaused(false));
+  navigator.mediaSession.setActionHandler("pause", () => setMasterPaused(true));
 }
 
 /* ---------- Randomize ---------- */
@@ -450,22 +316,12 @@ function randomize() {
   const picked = new Set();
   while (picked.size < count) picked.add(sourced[Math.floor(Math.random() * sourced.length)]);
 
-  /* Spread picked layers across the field, but leave plenty centred - a mix
-     where everything is panned feels as unbalanced as one where nothing is.
-     Bass-heavy beds never move; low frequencies pan badly. */
-  const pickPan = ch => {
-    if (ch.centered || Math.random() < 0.5) return 0;
-    return (Math.random() < 0.5 ? -1 : 1) * Math.round(20 + Math.random() * 45);
-  };
-
   // map before filtering so the index-based `picked` lookup stays correct.
   // Disabled channels are dropped entirely rather than animated to 0 - their
   // level is a preserved setting, not part of the mix.
   const targets = channels.map((ch, i) => ({
-    ch, from: ch.level, panFrom: ch.pan,
-    to: picked.has(i) ? 25 + Math.round(Math.random() * 70) : 0,
-    // silent layers keep their pan - no reason to churn what you can't hear
-    panTo: picked.has(i) ? pickPan(ch) : ch.pan
+    ch, from: ch.level,
+    to: picked.has(i) ? 25 + Math.round(Math.random() * 70) : 0
   })).filter(t => !t.ch.disabled);
 
   const finish = () => {
@@ -478,11 +334,7 @@ function randomize() {
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (reduce) {
-    targets.forEach(t => {
-      t.ch.level = t.to; t.ch.pan = t.panTo;
-      t.ch.drifter.reset(); t.ch.panDrifter.reset();
-      render(t.ch);
-    });
+    targets.forEach(t => { t.ch.level = t.to; t.ch.drifter.reset(); render(t.ch); });
     finish();
     return;
   }
@@ -492,18 +344,10 @@ function randomize() {
   function step(now) {
     const t = Math.min(1, (now - start) / DURATION);
     const e = easeInOut(t);
-    targets.forEach(({ ch, from, to, panFrom, panTo }) => {
-      ch.level = from + (to - from) * e;
-      ch.pan   = panFrom + (panTo - panFrom) * e;
-      render(ch);
-    });
+    targets.forEach(({ ch, from, to }) => { ch.level = from + (to - from) * e; render(ch); });
     if (t < 1) requestAnimationFrame(step);
     else {
-      targets.forEach(({ ch, to, panTo }) => {
-        ch.level = to; ch.pan = panTo;
-        ch.drifter.reset(); ch.panDrifter.reset();
-        render(ch);
-      });
+      targets.forEach(({ ch, to }) => { ch.level = to; ch.drifter.reset(); render(ch); });
       finish();
     }
   }
@@ -524,7 +368,6 @@ function setLive(on) {
       channels.forEach(ch => {
         if (ch.disabled || Math.round(ch.level) === 0) return;
         ch.level = ch.drifter.next(Math.round(ch.level));
-        if (!ch.centered) ch.pan = ch.panDrifter.next(ch.pan);
         render(ch);
       });
     }, 1000);
@@ -540,16 +383,12 @@ resetBtn.addEventListener("click", () => {
   setLive(false);
   // Reset clears the mix, not your preferences: disabled sounds stay disabled,
   // otherwise you would have to switch them off again after every reset.
-  channels.forEach(ch => {
-    ch.level = 0; ch.drifter.reset();
-    ch.pan = 0; ch.panDrifter.reset();
-    render(ch);
-  });
+  channels.forEach(ch => { ch.level = 0; ch.drifter.reset(); render(ch); });
 });
 
 /* ---------- per-channel wiring ---------- */
 function wire(ch) {
-  /* A disabled sound stays disabled no matter what its level or pan is set to,
+  /* A disabled sound stays disabled no matter what its level is set to,
      so every input path bails early rather than quietly switching it back on. */
   const setFromPointer = (e) => {
     if (ch.disabled) return;
@@ -591,54 +430,9 @@ function wire(ch) {
     }
   });
 
-  /* ---- pan ---- */
-  const setPan = (value) => {
-    if (ch.disabled) return;
-    const v = Math.max(-100, Math.min(100, value));
-    // centre detent: hitting exact centre by hand is otherwise near-impossible
-    ch.pan = Math.abs(v) < 6 ? 0 : Math.round(v);
-    ch.panDrifter.reset();
-    render(ch);
-  };
-
-  const panFromPointer = (e) => {
-    const rect = ch.panEl.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    setPan((Math.min(1, Math.max(0, ratio)) * 2 - 1) * 100);
-  };
-
-  ch.panEl.addEventListener("pointerdown", (e) => {
-    ch.panEl.setPointerCapture(e.pointerId);
-    ch.panEl.classList.add("dragging");
-    panFromPointer(e);
-    const move = (ev) => panFromPointer(ev);
-    const up = () => {
-      ch.panEl.classList.remove("dragging");
-      ch.panEl.removeEventListener("pointermove", move);
-      ch.panEl.removeEventListener("pointerup", up);
-      ch.panEl.removeEventListener("pointercancel", up);
-    };
-    ch.panEl.addEventListener("pointermove", move);
-    ch.panEl.addEventListener("pointerup", up);
-    ch.panEl.addEventListener("pointercancel", up);
-  });
-
-  ch.panEl.addEventListener("dblclick", () => setPan(0));
-
-  ch.panEl.addEventListener("keydown", (e) => {
-    if (ch.disabled) return;
-    let delta = 0;
-    if (e.key === "ArrowUp" || e.key === "ArrowRight") delta = 5;
-    if (e.key === "ArrowDown" || e.key === "ArrowLeft") delta = -5;
-    // Home returns to centre - more useful here than jumping to hard left
-    if (e.key === "Home") { setPan(0); e.preventDefault(); return; }
-    if (delta !== 0) { setPan(Math.round(ch.pan) + delta); e.preventDefault(); }
-  });
-
   ch.nameBtn.addEventListener("click", () => {
     ch.disabled = !ch.disabled;
     ch.nameBtn.setAttribute("aria-pressed", ch.disabled);
     render(ch);
   });
-
 }

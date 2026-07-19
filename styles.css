@@ -70,36 +70,11 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
 .fader .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; background: var(--slider-fill); }
 body.live .fill { transition: width 0.95s linear; }
 body.rand .fill, .fader.dragging .fill { transition: none !important; }
-/* Pan reads as a different kind of control to the fader - a dot on a line
-   rather than a filled bar - so two sliders never blur into one another.
-   At centre it is nearly invisible, which is the default for every row. */
-.pan { position: relative; height: 24px; margin-top: 6px; cursor: pointer;
-       touch-action: none; outline: none; transition: opacity 0.2s ease; }
-.pan::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
-               height: 2px; margin-top: -1px; border-radius: 1px; background: var(--slider-track); }
-/* dot and connector use --ink, not --slider-fill: the fader's near-white reads
-   against its dark trough, but as a 2px line on the panel it would vanish. */
-.pan-tick { position: absolute; left: 50%; top: 50%; width: 2px; height: 9px;
-            margin: -4.5px 0 0 -1px; border-radius: 1px; background: var(--ink); opacity: 0.3; }
-.pan-fill { position: absolute; top: 50%; left: 50%; width: 0; height: 2px;
-            margin-top: -1px; border-radius: 1px; background: var(--ink); opacity: 0.35; }
-.pan-dot { position: absolute; top: 50%; left: 50%; width: 11px; height: 11px;
-           margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--ink);
-           opacity: 0.62; }
-.pan:focus-visible { box-shadow: 0 0 0 3px var(--accent); border-radius: 8px; }
-.pan.off { opacity: 0.2; pointer-events: none; }
-.row:not(.active) .pan { opacity: 0.4; }
-body.live .pan-dot, body.live .pan-fill { transition: left 0.95s linear, width 0.95s linear; }
-body.rand .pan-dot, body.rand .pan-fill,
-.pan.dragging .pan-dot, .pan.dragging .pan-fill { transition: none !important; }
-/* Disabled: the sound is off the table entirely. Its controls go inert so
-   dragging them can't imply something is happening, but level and pan are
-   kept so re-enabling restores the row exactly as it was. */
+/* Disabled: the sound is off the table entirely. Its fader goes inert so
+   dragging it can't imply something is happening, but the level is kept
+   so re-enabling restores the row exactly as it was. */
 .row.disabled .name { color: var(--gray); text-decoration: line-through; }
-.row.disabled .fader,
-.row.disabled .pan { pointer-events: none; }
-.row.disabled .fader { opacity: 0.4; }
-.row.disabled .pan { opacity: 0.25; }
+.row.disabled .fader { pointer-events: none; opacity: 0.4; }
 .credit { margin: 20px 8px 0; font-size: 11px; color: var(--gray); letter-spacing: -0.01em; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
